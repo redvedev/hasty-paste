@@ -176,7 +176,7 @@ source .venv/bin/activate
 
 make py-install
 
-echo "PASTE_ROOT=data/
+echo "STORAGE__DISK__PASTE_ROOT=data/
 TIME_ZONE=Europe/London
 " > .env
 
