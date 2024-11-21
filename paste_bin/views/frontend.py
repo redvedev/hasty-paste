@@ -41,6 +41,15 @@ async def get_about():
 async def get_favicon():
     return redirect(url_for("static", filename="icon.svg"), 301)
 
+def encrypt_paste(paste_content, password):
+    print(f"Encrypted with password: {password}")
+    print(f"{paste_content}")
+    return paste_content
+
+def decrypt_paste(paste_content, password):
+    print(f"Decrypted with password: {password}")
+    print(f"{paste_content}")
+    return paste_content
 
 @blueprint.get("/new")
 @hide
@@ -104,6 +113,7 @@ async def post_new_paste():
     if len(password) > 0:
         ph = PasswordHasher()
         password_hash = ph.hash(password)
+        paste_content = encrypt_paste(paste_content, password)
     paste_handler = get_handler()
     paste_settings = PasteMetaToCreate(
             expire_dt=expires_at,
@@ -169,14 +179,20 @@ async def get_decrypted_paste(paste_id: str, override_lexer: str | None):
         sleep(5) # prevent brute-force attacks, one attempt per 5 seconds
         return await get_password_page(paste_meta, first_attempt=False)
 
-    rendered_paste = await paste_handler.get_paste_rendered(paste_id, override_lexer)
+    rendered_paste = await paste_handler.get_paste_raw(paste_id)
+    paste_content = decrypt_paste(rendered_paste, password).decode()
+    lexer_name = paste_meta.lexer_name or "text"
+    rendered = await renderer.highlight_content_async_wrapped(
+            paste_content,
+            lexer_name
+            )
 
     if rendered_paste is None:
         abort(500)
 
     return await render_template(
             "view.jinja",
-            paste_content = rendered_paste,
+            paste_content = rendered,
             meta = paste_meta,
             paste_id_padded=helpers.padd_str(paste_id, "-", 5),
             )
