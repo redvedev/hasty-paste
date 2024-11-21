@@ -166,7 +166,7 @@ async def get_decrypted_paste(paste_id: str, override_lexer: str | None):
     try:
         ph.verify(paste_meta.password_hash, password)
     except VerifyMismatchError:
-        sleep(5)
+        sleep(5) # prevent brute-force attacks, one attempt per 5 seconds
         return await get_password_page(paste_meta, first_attempt=False)
 
     rendered_paste = await paste_handler.get_paste_rendered(paste_id, override_lexer)
