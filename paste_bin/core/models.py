@@ -32,7 +32,7 @@ class PasteMeta(PasteMetaVersion):
     expire_dt: datetime | None = None
     lexer_name: str | None = None
     title: str | None = None
-    password_hash: str | None = None
+    password_hash: str = ""
 
     @property
     def is_expired(self) -> bool:
