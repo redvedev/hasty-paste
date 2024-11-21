@@ -9,13 +9,18 @@ from ..core import helpers, renderer
 from ..core.conversion import (form_field_to_datetime, local_to_utc,
                                utc_to_local)
 from ..core.helpers import PasteHandlerException
-from ..core.models import PasteMetaToCreate, PasteMeta
+from ..core.models import PasteMetaToCreate
 from ..core.paste_handler import get_handler
 
 #from cryptography.aes import AES
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from time import sleep
+from time import sleep # it's important sleep, to protect from brute-force attack
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding, hashes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import os
 
 blueprint = Blueprint("front_end", __name__)
 
@@ -41,14 +46,56 @@ async def get_about():
 async def get_favicon():
     return redirect(url_for("static", filename="icon.svg"), 301)
 
-def encrypt_paste(paste_content, password):
-    print(f"Encrypted with password: {password}")
-    print(f"{paste_content}")
-    return paste_content
+def derive_key(password, salt, key_length=32):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=key_length,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return kdf.derive(password.encode())
 
-def decrypt_paste(paste_content, password):
-    print(f"Decrypted with password: {password}")
-    print(f"{paste_content}")
+def encrypt_paste(paste_content, password):
+    # Generate a random salt and derive a key
+    salt = os.urandom(16)
+    key = derive_key(password, salt)
+    
+    # Generate a random IV
+    iv = os.urandom(16)
+    
+    # Create the cipher object
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    
+    # Pad the content and encrypt it
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(paste_content) + padder.finalize()
+    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+    
+    # Return salt + IV + ciphertext
+    encrypted_paste = salt + iv + ciphertext
+    print(encrypted_paste)
+    return encrypted_paste
+
+# Function to decrypt the paste
+def decrypt_paste(encrypted_paste_content, password):
+    # Extract salt, IV, and ciphertext
+    salt = encrypted_paste_content[:16]
+    iv = encrypted_paste_content[16:32]
+    ciphertext = encrypted_paste_content[32:]
+    
+    # Derive the key using the same salt
+    key = derive_key(password, salt)
+    
+    # Create the cipher object
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    
+    # Decrypt and unpad the content
+    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    paste_content = unpadder.update(padded_data) + unpadder.finalize()
     return paste_content
 
 @blueprint.get("/new")
