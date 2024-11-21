@@ -23,6 +23,10 @@
                     {%- endfor -%}
             </datalist>
         </div>
+        <div>
+            <label for="password">Password</label>
+            <input type="password" name="password", id="password" maxlength="32" placeholder="Optional password">
+        </div>
     </div>
     <textarea name="paste-content" id="paste-content" rows="15" placeholder="enter content here..." autocorrect="off"
         autocapitalize="off" autocomplete="off" required autofocus>{{ content }}</textarea>

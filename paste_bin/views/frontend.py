@@ -9,8 +9,12 @@ from ..core import helpers, renderer
 from ..core.conversion import (form_field_to_datetime, local_to_utc,
                                utc_to_local)
 from ..core.helpers import PasteHandlerException
-from ..core.models import PasteMetaToCreate
+from ..core.models import PasteMetaToCreate, PasteMeta
 from ..core.paste_handler import get_handler
+
+#from cryptography.aes import AES
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 blueprint = Blueprint("front_end", __name__)
 
@@ -79,6 +83,7 @@ async def post_new_paste():
 
     paste_content = (form["paste-content"].replace("\r\n", "\n")).encode()
     expires_at = form.get("expires-at", None, form_field_to_datetime)
+    password = str(form.get("password"))
     if expires_at:
         # NOTE ensure client's timezone is converted to server's
         expires_at = local_to_utc(expires_at, get_settings().TIME_ZONE)
@@ -94,20 +99,35 @@ async def post_new_paste():
     if lexer_name and not renderer.is_valid_lexer_name(lexer_name):
         abort(400)
 
+    password_hash = ""
+    if len(password) > 0:
+        ph = PasswordHasher()
+        password_hash = ph.hash(password)
     paste_handler = get_handler()
-
-    paste_id = await paste_handler.create_paste(
-        get_settings().USE_LONG_ID,
-        paste_content,
-        PasteMetaToCreate(
+    paste_settings = PasteMetaToCreate(
             expire_dt=expires_at,
             lexer_name=lexer_name,
             title=title,
-        ),
+            password_hash=password_hash
+        )
+    print(paste_settings)
+    paste_id = await paste_handler.create_paste(
+        get_settings().USE_LONG_ID,
+        paste_content,
+        paste_settings,
     )
 
     return redirect(url_for(".get_view_paste", paste_id=paste_id))
 
+@hide
+@helpers.handle_known_exceptions
+async def render_view(content, paste_meta):
+    return await render_template(
+            "test_view.jinja",
+            paste_content = content,
+            meta = paste_meta,
+            paste_id_padded = helpers.padd_str(pas)
+            )
 
 @blueprint.get("/<id:paste_id>", defaults={"override_lexer": None})
 @blueprint.get("/<id:paste_id>.<override_lexer>")
@@ -124,6 +144,11 @@ async def get_view_paste(paste_id: str, override_lexer: str | None):
         await paste_handler.remove_paste(paste_id)
         abort(404)
 
+    paste_meta.password_hash = str(paste_meta.password_hash)
+    if len(paste_meta.password_hash) > 0:
+        # the paste is encrypted, request password
+        return await get_encrypted_paste(paste_meta)
+
     rendered_paste = await paste_handler.get_paste_rendered(paste_id, override_lexer)
 
     if rendered_paste is None:
@@ -136,19 +161,13 @@ async def get_view_paste(paste_id: str, override_lexer: str | None):
         paste_id_padded=helpers.padd_str(paste_id, "-", 5),
     )
 
-
-@blueprint.get("/<id:paste_id>/raw")
-@hide
-@helpers.handle_known_exceptions
-async def get_raw_paste(paste_id: str):
-    paste_handler = get_handler()
-
-    paste_meta = await paste_handler.get_paste_meta(paste_id)
-
-    if paste_meta is None:
-        abort(404)
-    if paste_meta.is_expired:
-        await paste_handler.remove_paste(paste_id)
+async def get_encrypted_paste(paste_meta: PasteMeta, password_hash):
+    ph = PasswordHasher()
+    password = "temp_password" # for debug tests the password is local string. In the future it will be handled proper way
+    try:
+        ph.verify(paste_meta.password_hash, password)
+    except VerifyMismatchError:
+        print("incorrect password")
         abort(404)
 
     raw_paste = await paste_handler.get_paste_raw(paste_id)

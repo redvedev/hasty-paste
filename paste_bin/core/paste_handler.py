@@ -50,6 +50,7 @@ class PasteHandler:
         try:
             paste_id = helpers.create_paste_id(long_id)
             meta = config.into_meta(paste_id)
+
             await self._storage.write_paste(paste_id, cast(ASYNC_BYTES_GEN_TYPE, raw), meta)
             self.__run_in_background(self._cache.push_paste_any, paste_id, meta=meta)
             return paste_id
