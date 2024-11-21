@@ -1,22 +1,65 @@
-{% extends "/base.jinja" %}
-{% block title %}{{ meta.title or paste_id_padded | truncate(10) }}{% endblock %}
-{% block main %}
-<div class="panel">
-    <a class="bnt" href="{{ url_for('front_end.get_raw_paste', paste_id=meta.paste_id) }}">View Raw</a>
-    <a class="bnt" href="{{ url_for('front_end.get_raw_paste', paste_id=meta.paste_id) }}"
-        download="paste.txt">Download</a>
-    <button id="copy-share-link-bnt" disabled>Copy Share Link</button>
-    <script>enable_copy_share_link()</script>
-    <a class="bnt" href="{{ url_for('front_end.get_new_paste', clone_from=meta.paste_id) }}">Clone & Edit</a>
-</div>
+<!DOCTYPE html>
+<html lang="en">
 
-{% if meta.expire_dt %}
-<div class="panel">
-    <p>Expires in <time datetime="{{ meta.expire_dt.isoformat(timespec='milliseconds') }}Z">{{ meta.until_expiry().days
-            }} Days</time></p>
-</div>
-{% endif %}
+    <head>
+        <meta charset="UTF-8">
+        <title>{% block title %}{{ meta.title or paste_id_padded | truncate(10) }}{% endblock %} - {{ config.BRANDING.TITLE }}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {% if config.BRANDING.FAVICON %}
+        <link rel="shortcut icon" href="{{ url_for('extra_static.get_brand_favicon') }}">
+        {% else %}
+        <link rel="shortcut icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+        {% endif %}
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&family=Open+Sans&family=Roboto&display=swap"
+        rel="stylesheet">
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='pygments.css') }}">
+        {% if config.BRANDING.CSS_FILE %}
+        <link rel="stylesheet" href="{{ url_for('extra_static.get_brand_css') }}">
+        {% endif %}
+        <script src="{{ url_for('static', filename='script.js') }}"></script>
 
-<div class="panel">{{ paste_content | safe }}</div>
+        <script type="text/javascript" src="https://cdn.rawgit.com/ricmoo/aes-js/e27b99df/index.js"></script>
+    </head>
 
-{% endblock %}
+    <body>
+        <header>
+            <h1>{{ self.title() }}</h1>
+            <nav>
+                <a class="bnt" href="{{ url_for('front_end.get_about') }}">About</a>
+                <a class="bnt" href="{{ url_for('front_end.get_new_paste') }}">New Paste</a>
+            </nav>
+        </header>
+        <main>
+            {% block main %}
+            <div class="panel">
+                <a class="bnt" href="{{ url_for('front_end.get_raw_paste', paste_id=meta.paste_id) }}">View Raw</a>
+                <a class="bnt" href="{{ url_for('front_end.get_raw_paste', paste_id=meta.paste_id) }}"
+                    download="paste.txt">Download</a>
+                <button id="copy-share-link-bnt" disabled>Copy Share Link</button>
+                <script>enable_copy_share_link()</script>
+                <a class="bnt" href="{{ url_for('front_end.get_new_paste', clone_from=meta.paste_id) }}">Clone & Edit</a>
+            </div>
+
+            {% if meta.expire_dt %}
+            <div class="panel">
+                <p>Expires in <time datetime="{{ meta.expire_dt.isoformat(timespec='milliseconds') }}Z">{{ meta.until_expiry().days
+                    }} Days</time></p>
+            </div>
+            {% endif %}
+
+            <div class="panel">{{ paste_content | safe }}</div>
+
+            {% endblock %}
+        </main>
+        <footer>
+            Powered by <strong><a href="https://github.com/enchant97/hasty-paste">Hasty Paste</a></strong>
+            {% if config.__version__ %}
+            V{{ config.__version__ }}
+            {% endif %}
+        </footer>
+    </body>
+
+</html>
