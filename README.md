@@ -1,20 +1,8 @@
 # Hasty Paste
-![GitHub](https://img.shields.io/github/license/enchant97/hasty-paste?style=flat-square)
-![Supported Python Version](https://img.shields.io/badge/python%20version-3.10-blue?style=flat-square)
-![Lines of code](https://img.shields.io/tokei/lines/github/enchant97/hasty-paste?style=flat-square)
-![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/enchant97/hasty-paste?style=flat-square)
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/enchant97/hasty-paste?include_prereleases&label=latest%20release&style=flat-square)
-
-A fast and minimal paste bin.
-
-## Stopping Development
-V1.10 will be the last update that I will be developing as I don't find myself using this project and I want to focus on some other cool projects! This app is feature complete anyway.
-
-I am open to accepting anyone that wishes to maintain this project you can react me [here](https://github.com/enchant97#-how-to-reach-me).
-
-If you use this in a business environment and wish to have maintenance updates you can reach me at the links shown on my [profile](https://github.com/enchant97#-how-to-reach-me).
+A fork of a fast and minimal paste bin.
 
 ## Features
+- Optional encryption
 - Quickly paste and save, to share some text
 - Publicly accessible, no auth needed
 - Randomly generated id's, optional "long" id to reduce brute force attacks
