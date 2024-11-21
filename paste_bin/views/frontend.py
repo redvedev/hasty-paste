@@ -15,6 +15,7 @@ from ..core.paste_handler import get_handler
 #from cryptography.aes import AES
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from time import sleep
 
 blueprint = Blueprint("front_end", __name__)
 
@@ -110,7 +111,6 @@ async def post_new_paste():
             title=title,
             password_hash=password_hash
         )
-    print(paste_settings)
     paste_id = await paste_handler.create_paste(
         get_settings().USE_LONG_ID,
         paste_content,
@@ -119,23 +119,12 @@ async def post_new_paste():
 
     return redirect(url_for(".get_view_paste", paste_id=paste_id))
 
-@hide
-@helpers.handle_known_exceptions
-async def render_view(content, paste_meta):
-    return await render_template(
-            "test_view.jinja",
-            paste_content = content,
-            meta = paste_meta,
-            paste_id_padded = helpers.padd_str(pas)
-            )
-
 @blueprint.get("/<id:paste_id>", defaults={"override_lexer": None})
 @blueprint.get("/<id:paste_id>.<override_lexer>")
 @hide
 @helpers.handle_known_exceptions
 async def get_view_paste(paste_id: str, override_lexer: str | None):
     paste_handler = get_handler()
-
     paste_meta = await paste_handler.get_paste_meta(paste_id)
 
     if paste_meta is None:
@@ -144,10 +133,8 @@ async def get_view_paste(paste_id: str, override_lexer: str | None):
         await paste_handler.remove_paste(paste_id)
         abort(404)
 
-    paste_meta.password_hash = str(paste_meta.password_hash)
-    if len(paste_meta.password_hash) > 0:
-        # the paste is encrypted, request password
-        return await get_encrypted_paste(paste_meta)
+    if len(paste_meta.password_hash) > 0: # the paste is encrypted, request password
+        return await get_password_page(paste_meta, first_attempt=True)
 
     rendered_paste = await paste_handler.get_paste_rendered(paste_id, override_lexer)
 
@@ -155,19 +142,57 @@ async def get_view_paste(paste_id: str, override_lexer: str | None):
         abort(500)
 
     return await render_template(
-        "view.jinja",
-        paste_content=rendered_paste,
-        meta=paste_meta,
-        paste_id_padded=helpers.padd_str(paste_id, "-", 5),
-    )
+            "test_view.jinja",
+            paste_content = rendered_paste,
+            meta = paste_meta,
+            paste_id_padded=helpers.padd_str(paste_id, "-", 5),
+            )
 
-async def get_encrypted_paste(paste_meta: PasteMeta, password_hash):
+async def get_password_page(paste_meta, first_attempt):
+    return await render_template(
+            "submit_password.jinja",
+            meta = paste_meta,
+            first_attempt = first_attempt # in next attempts show notification about wrong password
+            )
+
+@blueprint.post("/decrypt/<id:paste_id>", defaults={"override_lexer": None})
+@blueprint.post("/decrypt/<id:paste_id>.<override_lexer>")
+async def get_decrypted_paste(paste_id: str, override_lexer: str | None):
+    form = await request.form
+    password = str(form.get("password"))
+    paste_handler = get_handler()
+    paste_meta = await paste_handler.get_paste_meta(paste_id)
     ph = PasswordHasher()
-    password = "temp_password" # for debug tests the password is local string. In the future it will be handled proper way
     try:
         ph.verify(paste_meta.password_hash, password)
     except VerifyMismatchError:
-        print("incorrect password")
+        sleep(5)
+        return await get_password_page(paste_meta, first_attempt=False)
+
+    rendered_paste = await paste_handler.get_paste_rendered(paste_id, override_lexer)
+
+    if rendered_paste is None:
+        abort(500)
+
+    return await render_template(
+            "test_view.jinja",
+            paste_content = rendered_paste,
+            meta = paste_meta,
+            paste_id_padded=helpers.padd_str(paste_id, "-", 5),
+            )
+
+@blueprint.get("/<id:paste_id>/raw")
+@hide
+@helpers.handle_known_exceptions
+async def get_raw_paste(paste_id: str):
+    paste_handler = get_handler()
+
+    paste_meta = await paste_handler.get_paste_meta(paste_id)
+
+    if paste_meta is None:
+        abort(404)
+    if paste_meta.is_expired:
+        await paste_handler.remove_paste(paste_id)
         abort(404)
 
     raw_paste = await paste_handler.get_paste_raw(paste_id)
