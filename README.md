@@ -1,5 +1,5 @@
 # Hasty Paste
-A fork of a fast and minimal paste bin.
+A fork of a fast and minimal paste bin, with encrypting pastes and corrected documentation.
 
 ## Features
 - Optional encryption
