@@ -75,7 +75,6 @@ def encrypt_paste(paste_content, password):
     
     # Return salt + IV + ciphertext
     encrypted_paste = salt + iv + ciphertext
-    print(encrypted_paste)
     return encrypted_paste
 
 # Function to decrypt the paste
